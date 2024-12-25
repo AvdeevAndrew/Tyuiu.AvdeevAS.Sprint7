@@ -1,11 +1,9 @@
-// Обновлённый проект Windows Forms с улучшениями UI/UX
-
 using System;
 using System.Drawing;
-using System.Linq;
+using System.IO;
 using System.Windows.Forms;
-using Tyuiu.AvdeevAS.Sprint7.Project.V8;
 using Tyuiu.AvdeevAS.Sprint7.Project.V8.Lib;
+using Tyuiu.AvdeevAS.Sprint7.Project.V8;
 
 namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
 {
@@ -21,7 +19,6 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             InitializeDataGrid();
             InitializeToolTips();
             dataService = new DataService();
-            Resize += MainForm_AAS_Resize;
         }
 
         private void InitializeComponent()
@@ -54,11 +51,14 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             this.menuStripMain_AAS.BackColor = Color.FromArgb(220, 220, 220);
 
             // Инструментальная панель
+            this.toolStripMain_AAS.ImageScalingSize = new Size(64, 64); // Увеличение размера иконок
             this.toolStripMain_AAS.Items.AddRange(new ToolStripItem[]
             {
-                CreateToolStripButton("icons/add_icon.png", OnAddButtonClicked, "Добавить новую запись"),
-                CreateToolStripButton("icons/edit_icon.png", OnEditButtonClicked, "Редактировать запись"),
-                CreateToolStripButton("icons/delete_icon.png", OnDeleteButtonClicked, "Удалить запись")
+                CreateToolStripButton("add_icon.png", OnAddButtonClicked, "Добавить новую запись"),
+                new ToolStripSeparator(),
+                CreateToolStripButton("edit_icon.png", OnEditButtonClicked, "Редактировать запись"),
+                new ToolStripSeparator(),
+                CreateToolStripButton("delete_icon.png", OnDeleteButtonClicked, "Удалить запись")
             });
             this.toolStripMain_AAS.BackColor = Color.FromArgb(220, 220, 220);
 
@@ -66,13 +66,12 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             this.searchBox = new TextBox
             {
                 PlaceholderText = "Поиск по номерному знаку...",
-                Width = 200
+                Width = 200,
+                Height = 30,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
-            var searchBoxHost = new ToolStripControlHost(this.searchBox)
-            {
-                Alignment = ToolStripItemAlignment.Right
-            };
-            this.toolStripMain_AAS.Items.Add(searchBoxHost);
+            this.Controls.Add(searchBox);
+            this.searchBox.Location = new Point(this.ClientSize.Width - this.searchBox.Width - 20, 5);
             this.searchBox.TextChanged += OnSearchTextChanged;
 
             // Таблица данных
@@ -111,27 +110,22 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             toolTip.SetToolTip(this.dataGridViewData_AAS, "Таблица данных автотранспортного предприятия");
         }
 
-        private ToolStripButton CreateToolStripButton(string imagePath, EventHandler onClick, string toolTipText)
+        private ToolStripButton CreateToolStripButton(string iconName, EventHandler onClick, string toolTipText)
         {
+            string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icons", iconName);
+            Image iconImage = File.Exists(iconPath) ? Image.FromFile(iconPath) : new Bitmap(64, 64);
+
             var button = new ToolStripButton
             {
-                Image = ResizeImage(Image.FromFile(imagePath), 104, 104), // Минимальный размер иконок увеличен
+                Image = iconImage,
                 DisplayStyle = ToolStripItemDisplayStyle.Image,
-                ToolTipText = toolTipText
+                ToolTipText = toolTipText,
+                AutoSize = false,
+                Width = 54,
+                Height = 50
             };
             button.Click += onClick;
             return button;
-        }
-
-        private Image ResizeImage(Image image, int width, int height)
-        {
-            var resized = new Bitmap(width, height);
-            using (var graphics = Graphics.FromImage(resized))
-            {
-                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                graphics.DrawImage(image, 0, 0, width, height);
-            }
-            return resized;
         }
 
         private void OnOpenFileClicked(object sender, EventArgs e)
@@ -271,17 +265,6 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             for (int i = 0; i < values.Length; i++)
             {
                 row.Cells[i].Value = values[i];
-            }
-        }
-
-        private void MainForm_AAS_Resize(object sender, EventArgs e)
-        {
-            foreach (ToolStripItem item in toolStripMain_AAS.Items)
-            {
-                if (item is ToolStripButton button && button.Image != null)
-                {
-                    button.Image = ResizeImage(button.Image, Math.Max(104, toolStripMain_AAS.Height - 10), Math.Max(104, toolStripMain_AAS.Height - 10));
-                }
             }
         }
 
