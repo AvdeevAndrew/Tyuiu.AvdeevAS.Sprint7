@@ -1,4 +1,8 @@
+// Обновлённый проект Windows Forms с улучшениями UI/UX
+
 using System;
+using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using Tyuiu.AvdeevAS.Sprint7.Project.V8;
 using Tyuiu.AvdeevAS.Sprint7.Project.V8.Lib;
@@ -9,6 +13,7 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
     {
         private DataService dataService;
         private ToolTip toolTip;
+        private TextBox searchBox;
 
         public MainForm_AAS()
         {
@@ -16,6 +21,7 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             InitializeDataGrid();
             InitializeToolTips();
             dataService = new DataService();
+            Resize += MainForm_AAS_Resize;
         }
 
         private void InitializeComponent()
@@ -23,10 +29,13 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             this.menuStripMain_AAS = new MenuStrip();
             this.toolStripMain_AAS = new ToolStrip();
             this.dataGridViewData_AAS = new DataGridView();
-            this.panelMain_AAS = new Panel();
+
+            // Применение пастельно-серой темы
+            this.BackColor = Color.FromArgb(240, 240, 240);
+            this.ForeColor = Color.FromArgb(50, 50, 50);
 
             // Меню
-            var fileMenu = new ToolStripMenuItem("Файл");
+            var fileMenu = new ToolStripMenuItem("Файл") { ForeColor = Color.Black };
             fileMenu.DropDownItems.AddRange(new ToolStripItem[]
             {
                 new ToolStripMenuItem("Открыть", null, OnOpenFileClicked) { ToolTipText = "Открыть файл с данными" },
@@ -34,7 +43,7 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
                 new ToolStripMenuItem("Выход", null, OnExitClicked) { ToolTipText = "Закрыть приложение" }
             });
 
-            var helpMenu = new ToolStripMenuItem("Справка");
+            var helpMenu = new ToolStripMenuItem("Справка") { ForeColor = Color.Black };
             helpMenu.DropDownItems.AddRange(new ToolStripItem[]
             {
                 new ToolStripMenuItem("О программе", null, OnAboutClicked) { ToolTipText = "Информация о приложении" },
@@ -42,27 +51,45 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             });
 
             this.menuStripMain_AAS.Items.AddRange(new ToolStripItem[] { fileMenu, helpMenu });
+            this.menuStripMain_AAS.BackColor = Color.FromArgb(220, 220, 220);
 
             // Инструментальная панель
             this.toolStripMain_AAS.Items.AddRange(new ToolStripItem[]
             {
-                new ToolStripButton("Добавить", null, OnAddButtonClicked) { ToolTipText = "Добавить новую запись" },
-                new ToolStripButton("Редактировать", null, OnEditButtonClicked) { ToolTipText = "Редактировать выбранную запись" },
-                new ToolStripButton("Удалить", null, OnDeleteButtonClicked) { ToolTipText = "Удалить выбранную запись" }
+                CreateToolStripButton("icons/add_icon.png", OnAddButtonClicked, "Добавить новую запись"),
+                CreateToolStripButton("icons/edit_icon.png", OnEditButtonClicked, "Редактировать запись"),
+                CreateToolStripButton("icons/delete_icon.png", OnDeleteButtonClicked, "Удалить запись")
             });
+            this.toolStripMain_AAS.BackColor = Color.FromArgb(220, 220, 220);
 
+            // Поле поиска
+            this.searchBox = new TextBox
+            {
+                PlaceholderText = "Поиск по номерному знаку...",
+                Width = 200
+            };
+            var searchBoxHost = new ToolStripControlHost(this.searchBox)
+            {
+                Alignment = ToolStripItemAlignment.Right
+            };
+            this.toolStripMain_AAS.Items.Add(searchBoxHost);
+            this.searchBox.TextChanged += OnSearchTextChanged;
+
+            // Таблица данных
             this.dataGridViewData_AAS.Dock = DockStyle.Fill;
             this.dataGridViewData_AAS.AllowUserToAddRows = false;
             this.dataGridViewData_AAS.AllowUserToDeleteRows = false;
             this.dataGridViewData_AAS.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            this.dataGridViewData_AAS.BackgroundColor = Color.FromArgb(240, 240, 240);
+            this.dataGridViewData_AAS.DefaultCellStyle.BackColor = Color.White;
+            this.dataGridViewData_AAS.DefaultCellStyle.ForeColor = Color.Black;
+            this.dataGridViewData_AAS.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 220, 220);
+            this.dataGridViewData_AAS.AlternatingRowsDefaultCellStyle.ForeColor = Color.Black;
 
-            this.panelMain_AAS.Dock = DockStyle.Bottom;
-            this.panelMain_AAS.Height = 50;
-
-            Controls.AddRange(new Control[] { dataGridViewData_AAS, panelMain_AAS, toolStripMain_AAS, menuStripMain_AAS });
+            Controls.AddRange(new Control[] { dataGridViewData_AAS, toolStripMain_AAS, menuStripMain_AAS });
 
             this.MainMenuStrip = this.menuStripMain_AAS;
-            this.Text = "Автотранспортное предприятие";
+            this.Text = "Главное меню";
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Size = new System.Drawing.Size(1024, 768);
         }
@@ -82,6 +109,29 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
         {
             toolTip = new ToolTip();
             toolTip.SetToolTip(this.dataGridViewData_AAS, "Таблица данных автотранспортного предприятия");
+        }
+
+        private ToolStripButton CreateToolStripButton(string imagePath, EventHandler onClick, string toolTipText)
+        {
+            var button = new ToolStripButton
+            {
+                Image = ResizeImage(Image.FromFile(imagePath), 104, 104), // Минимальный размер иконок увеличен
+                DisplayStyle = ToolStripItemDisplayStyle.Image,
+                ToolTipText = toolTipText
+            };
+            button.Click += onClick;
+            return button;
+        }
+
+        private Image ResizeImage(Image image, int width, int height)
+        {
+            var resized = new Bitmap(width, height);
+            using (var graphics = Graphics.FromImage(resized))
+            {
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(image, 0, 0, width, height);
+            }
+            return resized;
         }
 
         private void OnOpenFileClicked(object sender, EventArgs e)
@@ -116,7 +166,7 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
 
         private void OnExitClicked(object sender, EventArgs e)
         {
-            Application.Exit();
+            this.Close();
         }
 
         private void OnAboutClicked(object sender, EventArgs e)
@@ -163,6 +213,16 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             if (dataGridViewData_AAS.SelectedRows.Count > 0)
             {
                 dataGridViewData_AAS.Rows.Remove(dataGridViewData_AAS.SelectedRows[0]);
+            }
+        }
+
+        private void OnSearchTextChanged(object sender, EventArgs e)
+        {
+            string searchValue = searchBox.Text.ToLower();
+            foreach (DataGridViewRow row in dataGridViewData_AAS.Rows)
+            {
+                row.Visible = string.IsNullOrWhiteSpace(searchValue) ||
+                              row.Cells[0].Value?.ToString().ToLower().Contains(searchValue) == true;
             }
         }
 
@@ -214,10 +274,20 @@ namespace Tyuiu.AvdeevAS.Sprint7.Project.V08
             }
         }
 
+        private void MainForm_AAS_Resize(object sender, EventArgs e)
+        {
+            foreach (ToolStripItem item in toolStripMain_AAS.Items)
+            {
+                if (item is ToolStripButton button && button.Image != null)
+                {
+                    button.Image = ResizeImage(button.Image, Math.Max(104, toolStripMain_AAS.Height - 10), Math.Max(104, toolStripMain_AAS.Height - 10));
+                }
+            }
+        }
+
         private MenuStrip menuStripMain_AAS;
         private ToolStrip toolStripMain_AAS;
         private DataGridView dataGridViewData_AAS;
-        private Panel panelMain_AAS;
     }
 
     static class Program
